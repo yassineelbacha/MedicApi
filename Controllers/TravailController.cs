@@ -21,144 +21,93 @@ namespace MedicApi.Controllers
             _context = context;
         }
 
-        // GET: api/Travail
-        [HttpGet]
-        public async Task<ActionResult<IEnumerable<Travail>>> GetTravail()
+        private int? GetRoleByPersonneId(int personneId)
         {
-            // Vérifier si l'utilisateur a le rôle approprié (1 pour infirmier)
-            if (User != null && User.Identity.IsAuthenticated && User.IsInRole("1"))
-            {
-                if (_context.Travails == null)
-                {
-                    return NotFound();
-                }
-                return await _context.Travails.ToListAsync();
-            }
-            else
-            {
-                return Unauthorized(); // L'utilisateur n'est pas autorisé
-            }
+            var personne = _context.Personnes.FirstOrDefault(p => p.Id == personneId);
+            return personne?.Role;
         }
-
-        // GET: api/Travail/5
-        [HttpGet("{id}")]
-        public async Task<ActionResult<Travail>> GetTravail(int id)
-        {
-            // Vérifier si l'utilisateur a le rôle approprié (1 pour infirmier)
-            if (User != null && User.Identity.IsAuthenticated && User.IsInRole("1"))
-            {
-                if (_context.Travails == null)
-                {
-                    return NotFound();
-                }
-                var travail = await _context.Travails.FindAsync(id);
-
-                if (travail == null)
-                {
-                    return NotFound();
-                }
-
-                return travail;
-            }
-            else
-            {
-                return Unauthorized(); // L'utilisateur n'est pas autorisé
-            }
-        }
-
-        // PUT: api/Travail/5
-        // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
-        [HttpPut("{id}")]
-        public async Task<IActionResult> PutTravail(int id, Travail travail)
-        {
-            // Vérifier si l'utilisateur a le rôle approprié (1 pour infirmier)
-            if (User != null && User.Identity.IsAuthenticated && User.IsInRole("1"))
-            {
-                if (id != travail.Id)
-                {
-                    return BadRequest();
-                }
-
-                _context.Entry(travail).State = EntityState.Modified;
-
-                try
-                {
-                    await _context.SaveChangesAsync();
-                }
-                catch (DbUpdateConcurrencyException)
-                {
-                    if (!TravailExists(id))
-                    {
-                        return NotFound();
-                    }
-                    else
-                    {
-                        throw;
-                    }
-                }
-
-                return NoContent();
-            }
-            else
-            {
-                return Unauthorized(); // L'utilisateur n'est pas autorisé
-            }
-        }
-
-        // POST: api/Travail
-        // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
         [HttpPost]
-        public async Task<ActionResult<Travail>> PostTravail(Travail travail)
+        public JsonResult Create(Travail t)
         {
-            // Vérifier si l'utilisateur a le rôle approprié (1 pour infirmier)
-            if (User != null && User.Identity.IsAuthenticated && User.IsInRole("1"))
+            if(t.PersonneId == 0)
             {
-                if (_context.Travails == null)
+                return new JsonResult(BadRequest("PersonneId is required."));
+            }
+            var personneRole = GetRoleByPersonneId(t.PersonneId);
+            if (personneRole.HasValue && personneRole.Value == 1)
+            {
+                var patientExists = _context.Personnes.Any(p => p.Id == t.PersonneId);
+                if (!patientExists)
                 {
-                    return Problem("Entity set 'ApiContext.Travail' is null.");
+                    return new JsonResult(BadRequest($"Personne with ID {t.PersonneId} not found."));
                 }
-                _context.Travails.Add(travail);
-                await _context.SaveChangesAsync();
-
-                return CreatedAtAction("GetTravail", new { id = travail.Id }, travail);
+                _context.Travails.Add(t);
+                _context.SaveChanges();
+                var result = new
+                {
+                    id = t.Id,
+                    hrheure =  t.TrHeure,
+                    jours = t.Jours,
+                    conge = t.Conge,
+                    personneid = t.PersonneId
+                };
+                return new JsonResult(Ok(result));
             }
-            else
-            {
-                return Unauthorized(); // L'utilisateur n'est pas autorisé
-            }
+            return new JsonResult(BadRequest("Unauthorized: Invalid role."));
         }
-
-        // DELETE: api/Travail/5
-        [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteTravail(int id)
+        [HttpGet]
+        public JsonResult GetAll()
         {
-            // Vérifier si l'utilisateur a le rôle approprié (1 pour infirmier)
-            if (User != null && User.Identity.IsAuthenticated && User.IsInRole("1"))
-            {
-                if (_context.Travails == null)
-                {
-                    return NotFound();
-                }
-                var travail = await _context.Travails.FindAsync(id);
-                if (travail == null)
-                {
-                    return NotFound();
-                }
-
-                _context.Travails.Remove(travail);
-                await _context.SaveChangesAsync();
-
-                return NoContent();
-            }
-            else
-            {
-                return Unauthorized(); // L'utilisateur n'est pas autorisé
-            }
+            var result = _context.Travails.ToList();
+            return new JsonResult(Ok(result));
         }
-
-        private bool TravailExists(int id)
+        [HttpGet]
+        public JsonResult Get(int id)
         {
-            return (_context.Travails?.Any(e => e.Id == id)).GetValueOrDefault();
+            // Ajoutez ici la vérification du rôle si nécessaire
+            var result = _context.Travails.Find(id);
+            if (result == null)
+            {
+                return new JsonResult(NotFound());
+            }
+
+            return new JsonResult(Ok(result));
+        }
+        [HttpDelete]
+        public JsonResult Delete(int id)
+        {
+            // Ajoutez ici la vérification du rôle si nécessaire
+            var result = _context.Travails.Find(id);
+            if (result == null)
+            {
+                return new JsonResult(NotFound());
+            }
+
+            _context.Travails.Remove(result);
+            _context.SaveChanges();
+
+            return new JsonResult(Ok(result));
+        }
+        [HttpPut]
+
+        public JsonResult Edit(Travail updatedTravail)
+        {
+            var tr = _context.Travails.Find(updatedTravail.Id);
+
+            if (tr == null)
+            {
+                return new JsonResult(NotFound());
+            }
+
+            // Mettre à jour les informations du dossier médical
+            tr.TrHeure = updatedTravail.TrHeure;
+            tr.Jours = updatedTravail.Jours;
+            tr.Conge = updatedTravail.Conge;
+
+            _context.SaveChanges();
+
+
+            return new JsonResult(Ok(updatedTravail));
         }
     }
 }

@@ -14,7 +14,7 @@ namespace MedicApi.Models
         public string Email { get; set; }
         public string MotDePasse { get; set; }
         public string Adresse { get; set; }
-        [JsonIgnore]
+        
         public int Role { get; set; }
     }
 }

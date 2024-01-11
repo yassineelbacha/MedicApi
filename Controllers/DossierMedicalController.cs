@@ -1,12 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
+﻿using MedicApi.Data;
+using MedicApi.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using MedicApi.Data;
-using MedicApi.Models;
+using System.Linq;
 
 namespace MedicApi.Controllers
 {
@@ -21,144 +17,108 @@ namespace MedicApi.Controllers
             _context = context;
         }
 
-        // GET: api/DossierMedical
-        [HttpGet]
-        public async Task<ActionResult<IEnumerable<DossierMedical>>> GetDossierMedical()
+        private int? GetRoleByPersonneId(int personneId)
         {
-            // Vérifier si l'utilisateur a le rôle approprié (0 pour patient)
-            if (User != null && User.Identity.IsAuthenticated && User.IsInRole("0"))
-            {
-                if (_context.DossierMedicals == null)
-                {
-                    return NotFound();
-                }
-                return await _context.DossierMedicals.ToListAsync();
-            }
-            else
-            {
-                return Unauthorized(); // L'utilisateur n'est pas autorisé
-            }
+            var personne = _context.Personnes.FirstOrDefault(p => p.Id == personneId);
+            return personne?.Role;
         }
 
-        // GET: api/DossierMedical/5
-        [HttpGet("{id}")]
-        public async Task<ActionResult<DossierMedical>> GetDossierMedical(int id)
-        {
-            // Vérifier si l'utilisateur a le rôle approprié (0 pour patient)
-            if (User != null && User.Identity.IsAuthenticated && User.IsInRole("0"))
-            {
-                if (_context.DossierMedicals == null)
-                {
-                    return NotFound();
-                }
-                var dossierMedical = await _context.DossierMedicals.FindAsync(id);
-
-                if (dossierMedical == null)
-                {
-                    return NotFound();
-                }
-
-                return dossierMedical;
-            }
-            else
-            {
-                return Unauthorized(); // L'utilisateur n'est pas autorisé
-            }
-        }
-
-        // PUT: api/DossierMedical/5
-        // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
-        [HttpPut("{id}")]
-        public async Task<IActionResult> PutDossierMedical(int id, DossierMedical dossierMedical)
-        {
-            // Vérifier si l'utilisateur a le rôle approprié (0 pour patient)
-            if (User != null && User.Identity.IsAuthenticated && User.IsInRole("0"))
-            {
-                if (id != dossierMedical.Id)
-                {
-                    return BadRequest();
-                }
-
-                _context.Entry(dossierMedical).State = EntityState.Modified;
-
-                try
-                {
-                    await _context.SaveChangesAsync();
-                }
-                catch (DbUpdateConcurrencyException)
-                {
-                    if (!DossierMedicalExists(id))
-                    {
-                        return NotFound();
-                    }
-                    else
-                    {
-                        throw;
-                    }
-                }
-
-                return NoContent();
-            }
-            else
-            {
-                return Unauthorized(); // L'utilisateur n'est pas autorisé
-            }
-        }
-
-        // POST: api/DossierMedical
-        // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
         [HttpPost]
-        public async Task<ActionResult<DossierMedical>> PostDossierMedical(DossierMedical dossierMedical)
+        public JsonResult Create(DossierMedical d)
         {
-            // Vérifier si l'utilisateur a le rôle approprié (0 pour patient)
-            if (User != null && User.Identity.IsAuthenticated && User.IsInRole("0"))
+            if (d.PersonneId == 0)
             {
-                if (_context.DossierMedicals == null)
-                {
-                    return Problem("Entity set 'ApiContext.DossierMedical' is null.");
-                }
-                _context.DossierMedicals.Add(dossierMedical);
-                await _context.SaveChangesAsync();
+                return new JsonResult(BadRequest("PersonneId is required."));
+            }
 
-                return CreatedAtAction("GetDossierMedical", new { id = dossierMedical.Id }, dossierMedical);
-            }
-            else
+            var personneRole = GetRoleByPersonneId(d.PersonneId);
+
+            // Vérifier si le rôle de la personne est approprié (0 pour patient)
+            if (personneRole.HasValue && personneRole.Value == 0)
             {
-                return Unauthorized(); // L'utilisateur n'est pas autorisé
+                var patientExists = _context.Personnes.Any(p => p.Id == d.PersonneId);
+                if (!patientExists)
+                {
+                    return new JsonResult(BadRequest($"Personne with ID {d.PersonneId} not found."));
+                }
+
+                _context.DossierMedicals.Add(d);
+                _context.SaveChanges();
+
+                var result = new
+                {
+                    Id = d.Id,
+                    description = d.Descriptions,
+                    conclusion = d.Conclusion,
+                    medicament = d.Medicaments,
+                    certificat = d.Certificats,
+                    personneId = d.PersonneId
+                };
+
+                return new JsonResult(Ok(result));
             }
+
+            // Si le rôle n'est pas approprié, retourner une réponse BadRequest
+            return new JsonResult(BadRequest("Unauthorized: Invalid role."));
         }
 
-        // DELETE: api/DossierMedical/5
-        [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteDossierMedical(int id)
+        [HttpGet]
+        public JsonResult GetAll()
         {
-            // Vérifier si l'utilisateur a le rôle approprié (0 pour patient)
-            if (User != null && User.Identity.IsAuthenticated && User.IsInRole("0"))
-            {
-                if (_context.DossierMedicals == null)
-                {
-                    return NotFound();
-                }
-                var dossierMedical = await _context.DossierMedicals.FindAsync(id);
-                if (dossierMedical == null)
-                {
-                    return NotFound();
-                }
-
-                _context.DossierMedicals.Remove(dossierMedical);
-                await _context.SaveChangesAsync();
-
-                return NoContent();
-            }
-            else
-            {
-                return Unauthorized(); // L'utilisateur n'est pas autorisé
-            }
+            // Ajoutez ici la vérification du rôle si nécessaire
+            var result = _context.DossierMedicals.ToList();
+            return new JsonResult(Ok(result));
         }
 
-        private bool DossierMedicalExists(int id)
+        [HttpGet]
+        public JsonResult Get(int id)
         {
-            return (_context.DossierMedicals?.Any(e => e.Id == id)).GetValueOrDefault();
+            // Ajoutez ici la vérification du rôle si nécessaire
+            var result = _context.DossierMedicals.Find(id);
+            if (result == null)
+            {
+                return new JsonResult(NotFound());
+            }
+
+            return new JsonResult(Ok(result));
+        }
+
+        [HttpDelete]
+        public JsonResult Delete(int id)
+        {
+            // Ajoutez ici la vérification du rôle si nécessaire
+            var result = _context.DossierMedicals.Find(id);
+            if (result == null)
+            {
+                return new JsonResult(NotFound());
+            }
+
+            _context.DossierMedicals.Remove(result);
+            _context.SaveChanges();
+
+            return new JsonResult(Ok(result));
+        }
+        [HttpPut]
+     
+        public JsonResult Edit(DossierMedical updatedDossier)
+        {
+            var dossier = _context.DossierMedicals.Find(updatedDossier.Id);
+
+            if (dossier == null)
+            {
+                return new JsonResult(NotFound());
+            }
+
+            // Mettre à jour les informations du dossier médical
+            dossier.Descriptions = updatedDossier.Descriptions;
+            dossier.Conclusion = updatedDossier.Conclusion;
+            dossier.Medicaments = updatedDossier.Medicaments;
+            dossier.Certificats = updatedDossier.Certificats;
+
+            _context.SaveChanges();
+
+            
+            return new JsonResult(Ok(updatedDossier));
         }
     }
 }
