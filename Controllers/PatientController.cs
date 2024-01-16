@@ -2,6 +2,8 @@
 using Microsoft.AspNetCore.Mvc;
 using MedicApi.Data;
 using MedicApi.Models;
+using System.Net.Mail;
+using System.Net;
 
 namespace MedicApi.Controllers
 {
@@ -35,17 +37,42 @@ namespace MedicApi.Controllers
                     Email = patientDto.Email,
                     MotDePasse = patientDto.MotDePasse,
                     Adresse = patientDto.Adresse,
-                    Role = 0 // 0 pour patient
+                    Role = 0 
                 };
 
                 _context.Personnes.Add(patient);
                 _context.SaveChanges();
-                return new JsonResult(Ok("Patient ajouté avec succès"));
+                SendWelcomeEmail(patient.Email, patient.Nom, patient.MotDePasse);
+                return new JsonResult(Ok(patient));
             }
             catch (Exception ex)
             {
                 return new JsonResult(BadRequest($"Erreur lors de l'ajout du patient : {ex.Message}"));
             }
+        }
+        private void SendWelcomeEmail(string toEmail, string patientName, string password)
+        {
+            var smtpClient = new SmtpClient("smtp.gmail.com")
+            {
+                Port = 587,
+                Credentials = new NetworkCredential("cabinettestdot@gmail.com", "vknj tcxt mibx wtgz"),
+                EnableSsl = true,
+            };
+
+            var mailMessage = new MailMessage
+            {
+                From = new MailAddress("cabinettestdot@gmail.com"),
+                Subject = "Bienvenue sur notre plateforme médicale",
+                Body = $"Bonjour {patientName},\n\n" +
+                       "Bienvenue sur notre plateforme médicale. Votre compte a été créé avec succès.\n" +
+                       $"Votre mot de passe est : {password}\n\n" +
+                       "Connectez-vous dès maintenant et profitez de nos services.\n\n" +
+                       "Cordialement,\nVotre équipe médicale",
+                IsBodyHtml = false,
+            };
+
+            mailMessage.To.Add(toEmail);
+            smtpClient.Send(mailMessage);
         }
 
         [HttpPost]
@@ -62,12 +89,12 @@ namespace MedicApi.Controllers
                     Email = infirmierDto.Email,
                     MotDePasse = infirmierDto.MotDePasse,
                     Adresse = infirmierDto.Adresse,
-                    Role = 1 // 1 pour infirmier
+                    Role = 1 
                 };
 
                 _context.Personnes.Add(infirmier);
                 _context.SaveChanges();
-                return new JsonResult(Ok("Infirmier ajouté avec succès"));
+                return new JsonResult(Ok(infirmier));
             }
             catch (Exception ex)
             {
@@ -120,8 +147,6 @@ namespace MedicApi.Controllers
             {
                 return new JsonResult(new { Message = "Informations d'authentification incorrectes" }) { StatusCode = 401 };
             }
-
-            // Supprimez ou masquez les informations sensibles avant de les renvoyer au client
             user.MotDePasse = null;
 
             return new JsonResult(new { Message = "Authentification réussie", User = user }) { StatusCode = 200 };

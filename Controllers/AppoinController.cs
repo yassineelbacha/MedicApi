@@ -3,6 +3,8 @@ using MedicApi.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using System.IO;
+using System.Net.Mail;
+using System.Net;
 
 namespace MedicApi.Controllers
 {
@@ -19,43 +21,21 @@ namespace MedicApi.Controllers
         [HttpPost]
         public JsonResult Create(Appoin ap)
         {
-            /* _context.Appoins.Add(ap);
-             _context.SaveChanges();
-             return new JsonResult(Ok(ap));*/
-            /* if (ap.PersonneId == 0)
-             {
-                 return new JsonResult(BadRequest("PatientId is required."));
-             }
-
-             // Vérifiez si le patient associé existe
-             var patientExists = _context.Personnes.Any(p => p.Id == ap.PersonneId);
-             if (!patientExists)
-             {
-                 return new JsonResult(BadRequest($"Patient with ID {ap.PersonneId} not found."));
-             }
-
-             // Ajoutez le rendez-vous à la base de données
-             _context.Appoins.Add(ap);
-             _context.SaveChanges();
-
-             return new JsonResult(Ok(ap));*/
+         
             if (ap.PersonneId == 0)
             {
                 return new JsonResult(BadRequest("PersonneId is required."));
             }
 
-            // Vérifiez si le patient associé existe
             var patientExists = _context.Personnes.Any(p => p.Id == ap.PersonneId);
             if (!patientExists)
             {
                 return new JsonResult(BadRequest($"Personne with ID {ap.PersonneId} not found."));
             }
 
-            // Ajoutez le rendez-vous à la base de données
             _context.Appoins.Add(ap);
             _context.SaveChanges();
 
-            // Retournez uniquement les détails du rendez-vous
             var result = new
             {
                 rid = ap.Rid,
@@ -65,8 +45,31 @@ namespace MedicApi.Controllers
                 urgence = ap.Urgence,
                 personneId = ap.PersonneId
             };
-
+            SendConfirmationEmail(ap.PersonneId);
             return new JsonResult(Ok(result));
+        }
+        private void SendConfirmationEmail(int personneId)
+        {
+            var personne = _context.Personnes.FirstOrDefault(p => p.Id == personneId);
+
+            if (personne != null)
+            {
+                var smtpClient = new SmtpClient("smtp.gmail.com")
+                {
+                    Port = 587,
+                    Credentials = new NetworkCredential("cabinettestdot@gmail.com", "vknj tcxt mibx wtgz"),
+                    EnableSsl = true,
+                };
+                var mailMessage = new MailMessage
+                {
+                    From = new MailAddress("cabinettestdot@gmail.com"),
+                    Subject = "Réservation confirmée",
+                    Body = $"Bonjour {personne.Nom}, votre réservation a été confirmée. Merci !",
+                    IsBodyHtml = false,
+                };
+                mailMessage.To.Add(personne.Email);
+                smtpClient.Send(mailMessage);
+            }
         }
         [HttpGet]
         public JsonResult GetAll() 
@@ -129,6 +132,8 @@ namespace MedicApi.Controllers
            AppointmentId = ap.Appointment.Rid,
            Jour = ap.Appointment.Jour,
            Rendre = ap.Appointment.Date,
+           Heure = ap.Appointment.Heure,
+           Urgence = ap.Appointment.Urgence,
            Patient = new
            {
                Id = ap.Patient.Id,

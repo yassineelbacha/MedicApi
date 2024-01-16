@@ -32,8 +32,6 @@ namespace MedicApi.Controllers
             }
 
             var personneRole = GetRoleByPersonneId(d.PersonneId);
-
-            // Vérifier si le rôle de la personne est approprié (0 pour patient)
             if (personneRole.HasValue && personneRole.Value == 0)
             {
                 var patientExists = _context.Personnes.Any(p => p.Id == d.PersonneId);
@@ -58,14 +56,13 @@ namespace MedicApi.Controllers
                 return new JsonResult(Ok(result));
             }
 
-            // Si le rôle n'est pas approprié, retourner une réponse BadRequest
             return new JsonResult(BadRequest("Unauthorized: Invalid role."));
         }
 
         [HttpGet]
         public JsonResult GetAll()
         {
-            // Ajoutez ici la vérification du rôle si nécessaire
+            
             var result = _context.DossierMedicals.ToList();
             return new JsonResult(Ok(result));
         }
@@ -73,7 +70,7 @@ namespace MedicApi.Controllers
         [HttpGet]
         public JsonResult Get(int id)
         {
-            // Ajoutez ici la vérification du rôle si nécessaire
+            
             var result = _context.DossierMedicals.Find(id);
             if (result == null)
             {
@@ -86,7 +83,6 @@ namespace MedicApi.Controllers
         [HttpDelete]
         public JsonResult Delete(int id)
         {
-            // Ajoutez ici la vérification du rôle si nécessaire
             var result = _context.DossierMedicals.Find(id);
             if (result == null)
             {
@@ -109,7 +105,6 @@ namespace MedicApi.Controllers
                 return new JsonResult(NotFound());
             }
 
-            // Mettre à jour les informations du dossier médical
             dossier.Descriptions = updatedDossier.Descriptions;
             dossier.Conclusion = updatedDossier.Conclusion;
             dossier.Medicaments = updatedDossier.Medicaments;
@@ -119,6 +114,42 @@ namespace MedicApi.Controllers
 
             
             return new JsonResult(Ok(updatedDossier));
+        }
+        [HttpGet("{patientId}")]
+        public IActionResult GetDocumentByPatient(int patientId)
+        {
+            var dossiers = _context.DossierMedicals
+       .Join(_context.Personnes, d => d.PersonneId, p => p.Id, (d, p) => new { DossierMedical = d, Patient = p })
+       .Where(dm => dm.DossierMedical.PersonneId == patientId)
+       .Select(dm => new
+       {
+
+           Dossierid = dm.DossierMedical.Id,
+           Description = dm.DossierMedical.Descriptions,
+           Conclusion = dm.DossierMedical.Conclusion,
+           Medicament = dm.DossierMedical.Medicaments,
+           Certificat = dm.DossierMedical.Certificats,
+           Patient = new
+           {
+               Id = dm.Patient.Id,
+               Nom = dm.Patient.Nom,
+               Prenom = dm.Patient.Prenom,
+               Age = dm.Patient.Age,
+               DateNaissance = dm.Patient.DateNaissance,
+               Email = dm.Patient.Email,
+               MotDePasse = dm.Patient.MotDePasse,
+               Adresse = dm.Patient.Adresse,
+               Role = dm.Patient.Role
+           }
+       })
+            .ToList();
+
+            if (dossiers == null || dossiers.Count == 0)
+            {
+                return new JsonResult(NotFound($"No Dossier found for patient with ID {patientId}"));
+            }
+
+            return new JsonResult(Ok(dossiers));
         }
     }
 }

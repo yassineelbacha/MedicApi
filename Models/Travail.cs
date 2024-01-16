@@ -11,7 +11,7 @@ namespace MedicApi.Models
         public bool Conge { get; set; }
 
         [ForeignKey(nameof(Personne))]
-        public int PersonneId { get; set; } // Clé étrangère vers Personne
+        public int PersonneId { get; set; } 
       
     }
 }

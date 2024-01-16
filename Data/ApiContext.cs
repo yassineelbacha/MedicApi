@@ -9,13 +9,13 @@ namespace MedicApi.Data
         public ApiContext(DbContextOptions<ApiContext> options) : base(options) { }
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
-            modelBuilder.Entity<Personne>().HasKey(p => p.Id);  // Définir la clé primaire pour Patient
-            modelBuilder.Entity<Appoin>().HasKey(a => a.Rid);  // Définir la clé primaire pour Appoin
+            modelBuilder.Entity<Personne>().HasKey(p => p.Id);  
+            modelBuilder.Entity<Appoin>().HasKey(a => a.Rid);  
 
             /*  modelBuilder.Entity<Appoin>()
-                  .HasOne<Personne>()  // Définir le type de l'entité liée (Patient)
-                  .WithMany()         // Aucune propriété de navigation dans Patient
-                  .HasForeignKey(a => a.PersonneId);  // Clé étrangère*/
+                  .HasOne<Personne>()  
+                  .WithMany()         
+                  .HasForeignKey(a => a.PersonneId); */
             modelBuilder.Entity<Appoin>()
      .HasOne<Personne>()
      .WithMany()
@@ -34,7 +34,6 @@ namespace MedicApi.Data
                 .HasForeignKey(t => t.PersonneId)
                 .OnDelete(DeleteBehavior.NoAction);
 
-            // D'autres configurations de modèle peuvent être ajoutées ici...
 
             base.OnModelCreating(modelBuilder);
         }

@@ -64,7 +64,6 @@ namespace MedicApi.Controllers
         [HttpGet]
         public JsonResult Get(int id)
         {
-            // Ajoutez ici la vérification du rôle si nécessaire
             var result = _context.Travails.Find(id);
             if (result == null)
             {
@@ -76,7 +75,7 @@ namespace MedicApi.Controllers
         [HttpDelete]
         public JsonResult Delete(int id)
         {
-            // Ajoutez ici la vérification du rôle si nécessaire
+
             var result = _context.Travails.Find(id);
             if (result == null)
             {
@@ -99,7 +98,6 @@ namespace MedicApi.Controllers
                 return new JsonResult(NotFound());
             }
 
-            // Mettre à jour les informations du dossier médical
             tr.TrHeure = updatedTravail.TrHeure;
             tr.Jours = updatedTravail.Jours;
             tr.Conge = updatedTravail.Conge;
